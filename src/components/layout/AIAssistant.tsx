@@ -2,7 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquare, X, Send, Bot, User, Sparkles, Activity } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { GoogleGenAI } from "@google/genai";
 import { cn } from '../../lib/utils';
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
 
 interface Message {
   role: 'user' | 'assistant';
@@ -47,6 +50,33 @@ export default function AIAssistant() {
       });
 
       const data = await response.json();
+      
+      const isQuotaError = response.status === 429 || 
+                          data.error?.includes('429') || 
+                          data.error?.toLowerCase().includes('quota') || 
+                          data.code === 'insufficient_quota';
+
+      if (!response.ok && isQuotaError) {
+        console.warn("OpenAI Quota Exceeded. Falling back to Gemini...");
+        try {
+          const result = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: [...messages, { role: 'user', content: userMessage }].map(m => ({
+              role: m.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: m.content }]
+            })),
+            config: {
+              systemInstruction: "You are the UrbanSync AI Core (India Region). Help with urban infrastructure recovery in Indian metropolitan cities. Be technical and precise. (Falling back from OpenAI due to quota limits)",
+            }
+          });
+          setMessages(prev => [...prev, { role: 'assistant', content: result.text || 'No response.' }]);
+          return;
+        } catch (geminiError: any) {
+          console.error("Gemini Fallback Error:", geminiError);
+          throw new Error("Both OpenAI and Gemini intelligence cores are unavailable. System degraded.");
+        }
+      }
+
       if (!response.ok) {
         throw new Error(data.error || 'Neural link disruption');
       }

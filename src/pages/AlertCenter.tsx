@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   Clock,
   ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  Menu
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Alert } from '../types';
@@ -26,16 +27,23 @@ const mockAlerts: Alert[] = [
 
 export default function AlertCenter() {
   const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('all');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-900">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <main className="flex-1 overflow-y-auto">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="flex items-center gap-4">
-            <h1 className="font-display text-xl font-bold tracking-tight">Active Alert Center</h1>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-critical-red/10 text-critical-red rounded text-[10px] font-bold uppercase tracking-widest border border-critical-red/20">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
+          <div className="flex items-center gap-3 md:gap-4">
+            <button 
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-1.5 text-slate-500 hover:bg-slate-100 rounded-md"
+            >
+              <Menu size={20} />
+            </button>
+            <h1 className="font-display text-lg md:xl font-bold tracking-tight">Alert Center</h1>
+            <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-critical-red/10 text-critical-red rounded text-[10px] font-bold uppercase tracking-widest border border-critical-red/20">
               <div className="w-1 h-1 bg-critical-red rounded-full animate-ping"></div>
               Live Monitoring
             </div>
@@ -65,7 +73,7 @@ export default function AlertCenter() {
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Alert List */}
             <div className="lg:col-span-2 space-y-4">

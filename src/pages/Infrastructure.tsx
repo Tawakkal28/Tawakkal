@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   XCircle,
   MoreVertical,
-  Activity
+  Activity,
+  Menu
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { InfrastructureNode, InfrastructureType, StatusLevel } from '../types';
@@ -32,6 +33,7 @@ const mockNodes: InfrastructureNode[] = [
 export default function Infrastructure() {
   const [filter, setFilter] = useState<InfrastructureType | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const filteredNodes = mockNodes.filter(node => 
     (filter === 'all' || node.type === filter) &&
@@ -40,41 +42,47 @@ export default function Infrastructure() {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-900">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <main className="flex-1 overflow-y-auto">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="flex items-center gap-4">
-            <h1 className="font-display text-xl font-bold tracking-tight">Infrastructure Monitoring</h1>
-            <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded uppercase tabular-nums">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
+          <div className="flex items-center gap-3 md:gap-4">
+            <button 
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-1.5 text-slate-500 hover:bg-slate-100 rounded-md"
+            >
+              <Menu size={20} />
+            </button>
+            <h1 className="font-display text-lg md:xl font-bold tracking-tight">Infrastructure Monitoring</h1>
+            <span className="hidden sm:inline-block px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded uppercase tabular-nums">
               {mockNodes.length} Nodes Registered
             </span>
           </div>
           
-          <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-2 md:gap-3">
+            <button className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
               <Download size={16} /> Export CSV
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20">
+            <button className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg text-xs md:text-sm font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20">
               <ShieldAlert size={16} /> Deploy Team
             </button>
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           {/* Controls */}
           <div className="flex flex-col md:flex-row gap-4 mb-8">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
-                placeholder="Search by Node ID, Name, or Location..." 
+                placeholder="Search..." 
                 className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
               {(['all', 'power', 'water', 'transport', 'telecom', 'emergency'] as const).map(type => (
                 <button
                   key={type}

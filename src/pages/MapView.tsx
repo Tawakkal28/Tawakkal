@@ -13,7 +13,8 @@ import {
   Zap,
   Droplets,
   ShieldAlert,
-  Train
+  Train,
+  Menu
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { InfrastructureNode } from '../types';
@@ -45,6 +46,7 @@ export default function MapView() {
   const [selectedNode, setSelectedNode] = useState<InfrastructureNode | null>(null);
   const [activeLayers, setActiveLayers] = useState<string[]>(['power', 'water', 'transport', 'telecom', 'emergency']);
   const [mapType, setMapType] = useState<'vector' | 'satellite'>('vector');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const toggleLayer = (layer: string) => {
     setActiveLayers(prev => 
@@ -64,15 +66,21 @@ export default function MapView() {
 
   return (
     <div className="flex h-screen bg-slate-900 overflow-hidden text-white">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* Map Header */}
-        <header className="absolute top-0 left-0 right-0 h-16 bg-slate-900/40 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-8 z-[1000]">
-          <div className="flex items-center gap-4">
+        <header className="absolute top-0 left-0 right-0 h-16 bg-slate-900/40 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-4 md:px-8 z-[1000]">
+          <div className="flex items-center gap-3 md:gap-4">
+            <button 
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-1.5 text-slate-400 hover:bg-white/10 rounded-md"
+            >
+              <Menu size={20} />
+            </button>
             <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg">
               <MapPin size={16} className="text-blue-400" />
-              <span className="text-sm font-bold tracking-tight text-white">Geo-Spatial Interface</span>
+              <span className="text-xs md:text-sm font-bold tracking-tight text-white">Geo-Spatial Interface</span>
             </div>
           </div>
           

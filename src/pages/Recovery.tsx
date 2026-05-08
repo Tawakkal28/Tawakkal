@@ -13,7 +13,8 @@ import {
   Calendar,
   Layers,
   ChevronRight,
-  Plus
+  Plus,
+  Menu
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { RecoveryOperation } from '../types';
@@ -26,28 +27,36 @@ const mockOps: RecoveryOperation[] = [
 ];
 
 export default function Recovery() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-900">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <main className="flex-1 overflow-y-auto">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="flex items-center gap-4">
-            <h1 className="font-display text-xl font-bold tracking-tight">Recovery Operations</h1>
-            <div className="flex items-center gap-2 px-3 py-1 bg-success-green/10 text-success-green rounded-full border border-success-green/20">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
+          <div className="flex items-center gap-3 md:gap-4">
+            <button 
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-1.5 text-slate-500 hover:bg-slate-100 rounded-md"
+            >
+              <Menu size={20} />
+            </button>
+            <h1 className="font-display text-lg md:xl font-bold tracking-tight">Recovery Operations</h1>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-success-green/10 text-success-green rounded-full border border-success-green/20">
               <RefreshCw size={14} className="animate-spin" />
               <span className="text-[10px] font-bold uppercase tracking-wider">Sync Active</span>
             </div>
           </div>
           
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20">
-              <Plus size={16} /> New Deployment
+            <button className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg text-xs md:text-sm font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20">
+              <Plus size={16} /> <span className="hidden sm:inline">New Deployment</span><span className="sm:hidden">Deploy</span>
             </button>
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-12">
             <SummaryCard label="Active Missions" value="03" sub="Across 4 Zones" color="text-blue-600" />
             <SummaryCard label="Resources Deployed" value="124" sub="Equipment + Teams" color="text-purple-600" />

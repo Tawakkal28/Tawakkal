@@ -17,11 +17,19 @@ import {
   Activity,
   ChevronRight,
   RefreshCw,
-  ArrowRight
+  ArrowRight,
+  Menu
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { GoogleGenAI } from "@google/genai";
 import { cn } from '../lib/utils';
 import { InfrastructureNode, Alert, RecoveryOperation } from '../types';
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+const SYSTEM_INSTRUCTION = `
+You are the UrbanSync AI Core (India Region). Your goal is to analyze urban infrastructure data across Indian metropolitan areas and predict cascading failures.
+Be technical, precise, and authoritative. Return insights in a structured format.
+`;
 
 const chartData = [
   { name: '00:00', value: 85 },
@@ -39,6 +47,7 @@ export default function Dashboard() {
   const [ops, setOps] = useState<RecoveryOperation[]>([]);
   const [aiInsight, setAiInsight] = useState<{ summary: string; actions: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -92,6 +101,35 @@ export default function Dashboard() {
         });
 
         const data = await response.json();
+        
+        const isQuotaError = response.status === 429 || 
+                            data.error?.includes('429') || 
+                            data.error?.toLowerCase().includes('quota') || 
+                            data.code === 'insufficient_quota';
+
+        // Fallback to Gemini if OpenAI hits quota
+        if (!response.ok && isQuotaError) {
+          console.warn("OpenAI Quota Exceeded for Insights. Falling back to Gemini...");
+          try {
+            const prompt = `Analyze: Nodes: ${JSON.stringify(currentNodes)}. Alerts: ${JSON.stringify(currentAlerts)}. Provide a 1-sentence summary and 2 actions as JSON: { "summary": "...", "actions": ["...", "..."] }`;
+            
+            const result = await ai.models.generateContent({
+              model: "gemini-3-flash-preview",
+              contents: prompt,
+              config: {
+                systemInstruction: SYSTEM_INSTRUCTION,
+                responseMimeType: "application/json"
+              }
+            });
+            
+            setAiInsight(JSON.parse(result.text || "{}"));
+            return;
+          } catch (geminiError: any) {
+            console.error("Gemini Insight Fallback Error:", geminiError);
+            throw new Error("AI core unavailable");
+          }
+        }
+
         if (!response.ok) throw new Error(data.error || 'AI insight fetch failed');
         setAiInsight(data);
       } catch (aiErr: any) {
@@ -102,8 +140,25 @@ export default function Dashboard() {
         });
       }
     }
+
+    /// NDMA Alerts Fetcher
+    async function fetchNdmaAlerts() {
+      try {
+        const res = await fetch('/api/alerts/ndma');
+        const data = await res.json();
+        // We can append these to the main alerts or show separately
+        // For now let's just log them or if we have a separate state
+        setNdmaAlerts(data);
+      } catch (err) {
+        console.error("NDMA Sync Failed:", err);
+      }
+    }
+
     fetchData();
+    fetchNdmaAlerts();
   }, []);
+
+  const [ndmaAlerts, setNdmaAlerts] = useState<any[]>([]);
 
   const subscribeToNotifications = async () => {
     try {
@@ -136,43 +191,44 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-900">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <main className="flex-1 overflow-y-auto relative">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30">
-          <div className="flex items-center gap-4">
-            <h1 className="font-display text-xl font-bold tracking-tight">Mission Control</h1>
-            <div className="flex items-center gap-2 px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
+          <div className="flex items-center gap-3 md:gap-4">
+            <button 
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-1.5 text-slate-500 hover:bg-slate-100 rounded-md"
+            >
+              <Menu size={20} />
+            </button>
+            <h1 className="font-display text-lg md:xl font-bold tracking-tight">Mission Control</h1>
+            <div className="hidden sm:flex items-center gap-2 px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-500 uppercase tracking-tight">
               <span className="w-2 h-2 rounded-full bg-orange-500"></span>
               India Regional Core
             </div>
-            <div className="h-4 w-px bg-slate-200 mx-2"></div>
-            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-              <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", loading ? "bg-amber-500" : "bg-success-green")}></div>
-              {loading ? 'SYNCING_DATA...' : 'SYSTEM_LIVE // T +08:55:00'}
-            </div>
           </div>
           
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 md:gap-6">
             <button 
               onClick={subscribeToNotifications}
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 underline"
+              className="hidden sm:inline-block text-xs font-bold text-blue-600 hover:text-blue-700 underline"
             >
               Enable Alerts
             </button>
             <button 
               onClick={testNotification}
-              className="px-3 py-1.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-500 hover:bg-slate-200"
+              className="hidden md:inline-block px-3 py-1.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-500 hover:bg-slate-200"
             >
               Test Signal
             </button>
-            <div className="relative group">
+            <div className="relative group hidden lg:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input 
                 type="text" 
-                placeholder="Search nodes, alerts, ops..." 
-                className="bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all w-64"
+                placeholder="Search..." 
+                className="bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all w-32 xl:w-64"
               />
             </div>
             <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-lg transition-colors">
@@ -181,20 +237,19 @@ export default function Dashboard() {
                 <span className="absolute top-2 right-2 w-2 h-2 bg-critical-red rounded-full border-2 border-white"></span>
               )}
             </button>
-            <div className="flex items-center gap-3 pl-6 border-l border-slate-200 cursor-pointer group">
-              <div className="text-right">
+            <div className="flex items-center gap-3 pl-3 md:pl-6 border-l border-slate-200 cursor-pointer group">
+              <div className="text-right hidden sm:block">
                 <div className="text-sm font-bold group-hover:text-blue-600 transition-colors">Commander V.</div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Chief Coordinator</div>
               </div>
-              <div className="w-9 h-9 bg-slate-200 rounded-full flex items-center justify-center text-slate-500 border border-slate-300">
-                <User size={20} />
+              <div className="w-8 h-8 md:w-9 md:h-9 bg-slate-200 rounded-full flex items-center justify-center text-slate-500 border border-slate-300">
+                <User size={18} />
               </div>
             </div>
           </div>
         </header>
 
         {/* Dashboard Content */}
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-8 space-y-6 md:space-y-8">
           {/* Hero Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard 
@@ -347,26 +402,59 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Recent Alerts */}
-            <div className="glass-card p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-bold">Critical Alert Feed</h2>
-                <span className="bg-critical-red/10 text-critical-red text-[10px] font-bold px-2 py-0.5 rounded uppercase">Live</span>
+            {/* Alerts Feed */}
+            <div className="space-y-6">
+              {/* NDMA Integrated Feed */}
+              <div className="glass-card p-6 border-l-4 border-orange-500">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="text-orange-500" size={18} />
+                    <h2 className="text-sm font-bold uppercase tracking-wider">NDMA National Feed</h2>
+                  </div>
+                  <span className="bg-orange-100 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded tracking-widest uppercase">Verified</span>
+                </div>
+                <div className="space-y-3">
+                  {ndmaAlerts.length > 0 ? ndmaAlerts.map(alert => (
+                    <div key={alert.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 group cursor-help">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={cn(
+                          "text-[9px] font-bold uppercase px-1.5 py-0.5 rounded",
+                          alert.severity === 'orange' ? "bg-orange-500 text-white" : 
+                          alert.severity === 'yellow' ? "bg-amber-400 text-white" : "bg-green-500 text-white"
+                        )}>
+                          {alert.title}
+                        </span>
+                        <span className="text-[9px] font-mono text-slate-400">{alert.region}</span>
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed font-medium">{alert.description}</p>
+                    </div>
+                  )) : (
+                    <div className="text-xs text-slate-400 italic">Scanning national disaster signals...</div>
+                  )}
+                </div>
               </div>
-              
-              <div className="space-y-3">
-                {alerts.length > 0 ? alerts.map(alert => (
-                  <AlertItem 
-                    key={alert.id}
-                    severity={alert.severity} 
-                    time={`${Math.floor((Date.now() - new Date(alert.timestamp).getTime()) / 60000)}m ago`} 
-                    title={alert.title} 
-                    location={alert.description.split('.')[0]} 
-                    onClick={() => navigate('/alerts')}
-                  />
-                )) : (
-                  <div className="py-8 text-center text-slate-400 italic">All systems clear</div>
-                )}
+
+              {/* Critical Alert Feed */}
+              <div className="glass-card p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-bold">Critical System Feed</h2>
+                  <span className="bg-critical-red/10 text-critical-red text-[10px] font-bold px-2 py-0.5 rounded uppercase">Live</span>
+                </div>
+                
+                <div className="space-y-3">
+                  {alerts.length > 0 ? alerts.map(alert => (
+                    <AlertItem 
+                      key={alert.id}
+                      severity={alert.severity} 
+                      time={`${Math.floor((Date.now() - new Date(alert.timestamp).getTime()) / 60000)}m ago`} 
+                      title={alert.title} 
+                      location={alert.description.split('.')[0]} 
+                      onClick={() => navigate('/alerts')}
+                    />
+                  )) : (
+                    <div className="py-8 text-center text-slate-400 italic">All systems clear</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
